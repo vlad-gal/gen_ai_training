@@ -1,37 +1,50 @@
 package com.epam.training.gen.ai.service;
 
-import com.azure.ai.openai.OpenAIAsyncClient;
-import com.azure.ai.openai.models.ChatCompletionsOptions;
-import com.azure.ai.openai.models.ChatRequestUserMessage;
 import com.epam.training.gen.ai.dto.AnswerDTO;
+import com.microsoft.semantickernel.Kernel;
+import com.microsoft.semantickernel.orchestration.InvocationContext;
+import com.microsoft.semantickernel.orchestration.PromptExecutionSettings;
+import com.microsoft.semantickernel.services.chatcompletion.ChatCompletionService;
+import com.microsoft.semantickernel.services.chatcompletion.ChatHistory;
+import com.microsoft.semantickernel.services.chatcompletion.ChatMessageContent;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
-
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OpenAIServiceImpl implements OpenAIService {
-    private final OpenAIAsyncClient openAIAsyncClient;
+  private final ChatCompletionService chatCompletionService;
+  private final Kernel kernel;
 
-    @Value("${client-azureopenai-deployment-name}")
-    private String deploymentOrModelName;
+  @Override
+  public AnswerDTO generateAnswer(String prompt, Double temperature) {
+    var chatHistory = new ChatHistory();
+    chatHistory.addUserMessage(prompt);
 
-    @Override
-    public AnswerDTO generateAnswer(String prompt) {
-        var completions = openAIAsyncClient
-                .getChatCompletions(
-                        deploymentOrModelName,
-                        new ChatCompletionsOptions(
-                                List.of(new ChatRequestUserMessage(prompt))))
-                .block();
-        var message = completions.getChoices().stream()
-                .map(choice -> choice.getMessage().getContent())
-                .findFirst().orElse("No answer");
+    var completions =
+        chatCompletionService
+            .getChatMessageContentsAsync(chatHistory, kernel, this.invocationContext(temperature))
+            .block();
+    log.info("Completions: {}", completions);
 
+    var message =
+        completions.stream().map(ChatMessageContent::getContent).findFirst().orElse("No answer");
+    log.info("Message: {}", message);
+    chatHistory.addAssistantMessage(message);
+    log.info("Chat history: {}", chatHistory.getMessages());
 
-        return new AnswerDTO().setAnswer(message);
-    }
+    return new AnswerDTO().setAnswer(message);
+  }
+
+  private PromptExecutionSettings createPromptExecutionSettings(Double temperature) {
+    return PromptExecutionSettings.builder().withTemperature(temperature).build();
+  }
+
+  private InvocationContext invocationContext(Double temperature) {
+    return InvocationContext.builder()
+        .withPromptExecutionSettings(this.createPromptExecutionSettings(temperature))
+        .build();
+  }
 }
