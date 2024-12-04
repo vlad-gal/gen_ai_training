@@ -12,10 +12,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("v1/prompt")
 @RequiredArgsConstructor
 public class PromptAPI {
-    private final OpenAIService openAIService;
+  private final OpenAIService openAIService;
 
-    @GetMapping
-    public AnswerDTO getAnswer(@RequestParam(value = "prompt") String prompt) {
-        return openAIService.generateAnswer(prompt);
-    }
+  @GetMapping
+  public AnswerDTO getAnswer(
+      @RequestParam(value = "prompt") String prompt,
+      @RequestParam(value = "temp", required = false, defaultValue = "1.0") Double temperature) {
+    return openAIService.generateAnswer(prompt, temperature);
+  }
 }
