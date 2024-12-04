@@ -17,7 +17,9 @@ public class PromptAPI {
   @GetMapping
   public AnswerDTO getAnswer(
       @RequestParam(value = "prompt") String prompt,
-      @RequestParam(value = "temp", required = false, defaultValue = "1.0") Double temperature) {
-    return openAIService.generateAnswer(prompt, temperature);
+      @RequestParam(value = "temp", required = false, defaultValue = "1.0") Double temperature,
+      @RequestParam(value = "modelId", required = false, defaultValue = "gpt-35-turbo")
+          String modelId) {
+    return openAIService.generateAnswer(prompt, temperature, modelId);
   }
 }
