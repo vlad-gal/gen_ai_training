@@ -1,14 +1,19 @@
 package com.epam.training.gen.ai.service;
 
 import com.epam.training.gen.ai.dto.AnswerDTO;
+import com.epam.training.gen.ai.plugin.AgeCalculatorPlugin;
+import com.epam.training.gen.ai.plugin.WeatherPredictorPlugin;
 import com.epam.training.gen.ai.validator.ModelValidator;
 import com.microsoft.semantickernel.Kernel;
 import com.microsoft.semantickernel.aiservices.openai.chatcompletion.OpenAIChatCompletion;
 import com.microsoft.semantickernel.orchestration.InvocationContext;
 import com.microsoft.semantickernel.orchestration.PromptExecutionSettings;
+import com.microsoft.semantickernel.orchestration.ToolCallBehavior;
+import com.microsoft.semantickernel.plugin.KernelPluginFactory;
 import com.microsoft.semantickernel.services.chatcompletion.ChatCompletionService;
 import com.microsoft.semantickernel.services.chatcompletion.ChatHistory;
 import com.microsoft.semantickernel.services.chatcompletion.ChatMessageContent;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -37,7 +42,11 @@ public class OpenAIServiceImpl implements OpenAIService {
     log.info("Completions: {}", completions);
 
     var message =
-        completions.stream().map(ChatMessageContent::getContent).findFirst().orElse("No answer");
+        completions.stream()
+            .map(ChatMessageContent::getContent)
+            .filter(Objects::nonNull)
+            .findFirst()
+            .orElse("No answer");
     log.info("Message: {}", message);
     chatHistory.addAssistantMessage(message);
     log.info("Chat history: {}", chatHistory.getMessages());
@@ -52,12 +61,19 @@ public class OpenAIServiceImpl implements OpenAIService {
   private InvocationContext invocationContext(Double temperature) {
     return InvocationContext.builder()
         .withPromptExecutionSettings(this.createPromptExecutionSettings(temperature))
+        .withToolCallBehavior(ToolCallBehavior.allowAllKernelFunctions(true))
         .build();
   }
 
   private Kernel buildKernel(ChatCompletionService chatCompletionService) {
     return Kernel.builder()
         .withAIService(ChatCompletionService.class, chatCompletionService)
+        .withPlugin(
+            KernelPluginFactory.createFromObject(
+                new WeatherPredictorPlugin(), WeatherPredictorPlugin.class.getSimpleName()))
+        .withPlugin(
+            KernelPluginFactory.createFromObject(
+                new AgeCalculatorPlugin(), AgeCalculatorPlugin.class.getSimpleName()))
         .build();
   }
 }
