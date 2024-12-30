@@ -10,8 +10,8 @@ import com.azure.ai.openai.models.EmbeddingItem;
 import com.azure.ai.openai.models.EmbeddingsOptions;
 import com.epam.training.gen.ai.dto.EmbeddingDTO;
 import com.epam.training.gen.ai.dto.ResponseEmbeddingDTO;
+import com.epam.training.gen.ai.util.QdrantUtil;
 import io.qdrant.client.QdrantClient;
-import io.qdrant.client.grpc.Collections;
 import io.qdrant.client.grpc.JsonWithInt;
 import io.qdrant.client.grpc.Points;
 import java.util.List;
@@ -29,6 +29,7 @@ import org.springframework.stereotype.Service;
 public class EmbeddingServiceImpl implements EmbeddingService {
   private final OpenAIAsyncClient openAIAsyncClient;
   private final QdrantClient qdrantClient;
+  private final QdrantUtil qdrantUtil;
 
   @Value("${embedding.model.name}")
   private String embeddingModelName;
@@ -79,7 +80,7 @@ public class EmbeddingServiceImpl implements EmbeddingService {
 
   @Override
   public String storeEmbedding(EmbeddingDTO embeddingDTO) {
-    this.checkCollectionExistence();
+    qdrantUtil.checkCollectionExistence(collectionName);
     List<Points.PointStruct> pointStructs =
         this.buildEmbedding(embeddingDTO).stream()
             .map(EmbeddingItem::getEmbedding)
@@ -93,37 +94,6 @@ public class EmbeddingServiceImpl implements EmbeddingService {
     } catch (ExecutionException | InterruptedException e) {
       log.error("Error saving vector: {}", e.getMessage());
       throw new RuntimeException("Error saving vector", e);
-    }
-  }
-
-  /**
-   * Checks if the collection exists in Qdrant. If it does not exist, a new collection is created.
-   */
-  private void checkCollectionExistence() {
-    try {
-      qdrantClient.getCollectionInfoAsync(collectionName).get();
-    } catch (Exception ex) {
-      log.info("Collection '{}' not found. Creating a new collection...", collectionName);
-      this.createCollection();
-    }
-  }
-
-  /** Creates a new collection in Qdrant with specified vector parameters. */
-  private void createCollection() {
-    try {
-      var result =
-          qdrantClient
-              .createCollectionAsync(
-                  collectionName,
-                  Collections.VectorParams.newBuilder()
-                      .setDistance(Collections.Distance.Cosine)
-                      .setSize(1536)
-                      .build())
-              .get();
-      log.info("Collection was created: [{}]", result.getResult());
-    } catch (ExecutionException | InterruptedException e) {
-      log.error("Error creating collection: {}", e.getMessage());
-      throw new RuntimeException("Error creating collection", e);
     }
   }
 
